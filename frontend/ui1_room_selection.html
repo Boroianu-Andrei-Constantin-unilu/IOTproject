@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Room Selection and Data Access</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .room_card { border: 1px solid #ccc; padding: 15px; margin-bottom: 10px; }
+            h2 { color: #333; }
+        </style>
+    </head>
+    <body>
+        <h1>Room Selection Decision Support System</h1>
+        <h2>Available Rooms</h2>
+        <div id="rooms"></div>
+
+        <h2>Room Rankings</h2>
+        <div id="rankings"></div>
+
+        <h2>Room Details</h2>
+        <select id="roomSelect" onchange="fetchRoomData()">
+            <option value="">Select a Room</option>
+        </select>
+        <div id="roomData"></div>
+
+        <script>
+            // Fetch rooms and display facilities and average sensor readings
+            async function fetchRooms() {
+                const response = await fetch('/api/rooms');
+                const rooms = await response.json();
+                const roomsDiv = document.getElementById('rooms');
+                roomsDiv.innerHTML = '';
+                rooms.forEach(room => {
+                    const roomCard = document.createElement('div');
+                    roomCard.className = 'room_card';
+                    roomCard.innerHTML = `<strong>${room.room_name}</strong><br>
+                        Facilities: ${JSON.stringify(room.facilities)}<br>
+                        Air Quality: ${room.air_quality.toFixed(2)}<br>
+                        CO2 Level: ${room.co2_level.toFixed(2)}<br>
+                        Humididty: ${room.humidity.toFixed(2)}<br>
+                        Temperature: ${room.temperature.toFixed(2)}<br>
+                        Sound Level: ${room.sound_level.toFixed(2)}<br>`;
+                    roomsDiv.appendChild(roomCard);
+
+                    // Populate room selector for detailed data
+                    const option = document.createElement('option');
+                    option.value = room.room_name;
+                    option.textContent = room.room_name;
+                    document.getElementById('roomSelect').appendChild(option);
+                });
+            }
+
+            // Fetch room rankings and display
+            async function fetchRankings() {
+                const response = await fetch('/api/room-rankings');
+                const rankings = await response.json();
+                const rankingsDiv = document.getElementById('rankings');
+                rankingsDiv.innerHTML = '<ol>' + rankings.map(room =>`<li>${room.room_name} - Score: ${room.score.toFixed(2)}</li>`).join('') + '</ol>';
+            }
+
+            // Fetch detailed sensor data for selected room
+            async function fetchRoomData() {
+                const roomName = document.getElementById('roomSelect').value;
+                if (!roomName) return;
+
+                const response = await fetch(`/api/room/${roomName}/data`);
+                const roomData = await response.json();
+                const roomDataDiv = document.getElementById('roomData');
+                roomDataDiv.innerHTML = `<h3>Data for ${roomName}</h3>` + Object.keys(roomData).map(sensor => {
+                    return `<h4>${sensor.replace('_', ' ').toUpperCase()}</h4><ul>` + roomData[sensor].map(entry =>
+                        `<li>${entry.timestamp}: ${Object.values(entry).slice(1).join(', ')}</li>`).join('') + '</ul>';
+                    }).join('');
+                }
+
+                // Initialize
+                fetchRooms();
+                fetchRankings();
+        </script>
+    </body>
+</html>

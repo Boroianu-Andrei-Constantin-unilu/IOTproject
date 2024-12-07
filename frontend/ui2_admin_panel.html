@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Admin Panel - Room Monitoring</title>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .chart-container { width: 80px; margin: auto; }
+            h2 { color: #333; }
+            .login-form, .data-section { display: none; }
+        </style>
+    </head>
+    <body>
+        <h1>Admin Panel - Room Monitoring</h1>
+
+        <!-- Login Form -->
+        <div class="login-form" id="loginForm">
+            <h2>Admin Login</h2>
+            <label for="password">Enter Password:</label>
+            <input type="password" id="password">
+            <button onclick="authenticate()">Login</button>
+            <p id="loginMessage" style="color: red;"></p>
+        </div>
+
+        <!-- Data and Chart Section -->
+        <div class="data-section" id="dataSection">
+            <h2>Select Room and Sensor for Monitoring</h2>
+            <select id="roomSelect" onchange="fetchSensorData()">
+                <option value="">Select a Room</option>
+            </select>
+            <select id="sensorSelect" onchange="fetchSensorData()">
+                <option value="">Select a Sensor</option>
+                <option value="co2_levels">CO2 Levels</option>
+                <option value="temperature">Temperature</option>
+                <option value="humidity">Humidity</option>
+                <option value="sound_levels">Sound Levels</option>
+                <option value="light_intensity">Light Intensity</option>
+            </select>
+
+            <!-- Login Form -->
+            <div class="chart-container">
+                <canvas id="sensorChart"></canvas>
+            </div>
+        </div>
+
+        <script>
+            // Basic Authentication with Password Protection
+            const ADMIN_PASSWORD = 'admin123'; // Placeholder
+
+            function authenticate() {
+                const inputPassword = document.getElementById('password').value;
+                if (inputPassword === ADMIN_PASSWORD) {
+                    document.getElementById('loginForm').style.display = 'none';
+                    document.getElementById('dataSection').style.display = 'block';
+                    fetchRooms();
+                } else {
+                    document.getElementById('loginMessage').textContent = 'Incorrect Password. Please try again.';
+                }
+            }
+
+            // Fetch room for list selection
+            async function fetchRooms() {
+                const response = await fetch('/api/rooms');
+                const rooms = await response.json();
+                const roomSelect = document.getElementById('roomSelect');
+                rooms.forEach(room => {
+                    const option = document.createElement('option');
+                    option.value = room.room_name;
+                    option.textContent = room.room_name;
+                    roomSelect.appendChild(option);
+                });
+            }
+
+            // Fetch sensor data for selected room and sensor type
+            async function fetchSensorData() {
+                const roomName = document.getElementById('roomSelect').value;
+                const sensorType = document.getElementById('sensorSelect').value;
+                if (!roomName || !sensorType) return;
+
+                const response = await fetch(`/api/room/${roomName}/data`);
+                const data = await response.json();
+
+                if(data[sensorType]) {
+                    updateChart(data[sensorType], sensorType);
+                }
+            }
+
+            // Chart.js chart instance
+            let sensorChart;
+            function updateChart(sensorData, sensorType) {
+                const timestamps = sensorData.map(entry => entry.timestamp);
+                const values = sensorData.map(entry => Object.values(entry)[1]);
+
+                const chartData = {
+                    labels: timestamps,
+                    datasets: [{
+                        label: sensorType.replace('_', ' ').toUpperCase(),
+                        data: values,
+                        fill: false,
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1
+                    }]
+                };
+
+                const config = {
+                    type: 'line',
+                    data: chartData,
+                    options: {
+                        scales: {
+                            x: { display: true, title: { display: true, text: 'Timestamp' } },
+                            y: { display: true, title: { display: true, text: sensorType.toUpperCase() } },
+                        }
+                    }
+                };
+
+                // Destroy previous chart instance, in case it exists
+                if (sensorChart) sensorChart.destroy();
+                const ctx = document.getElementById('sensorChart').getContext('2d');
+                sensorChart = new Chart(ctx, config);
+            }
+        </script>
+    </body>
+</html>
